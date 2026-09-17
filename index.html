@@ -149,15 +149,21 @@
         <div id="tab-pose" class="tab-content">
             <div id="rig-status-box">● Model Inactive</div>
 
-            <div class="section-title">Everyday Movement Presets</div>
+            <div class="section-title">Anatomical Movement Presets</div>
             <div class="control-group">
                 <select id="sel-pose" onchange="applyPresetPose(this.value)">
                     <option value="neutral" selected>Neutral A-Pose (မူလ မတ်တပ်)</option>
                     <option value="contrapposto">Contrapposto (ဂန္ထဝင် အလေးပေးရပ်ဟန်)</option>
-                    <option value="sitting">Sitting (ကုလားထိုင် ထိုင်ဟန်)</option>
-                    <option value="walking">Walking / Stride (လမ်းလျှောက်ဟန်)</option>
+                    <option value="thinker">The Thinker (စဉ်းစားတွေးတောဟန် - Rodin)</option>
+                    <option value="ascending">Ascending / Levitating (လေထဲမျောလွင့်ဟန်)</option>
+                    <option value="reading">Cross-Legged Reading (စာဖတ်ထိုင်ဟန်)</option>
                     <option value="folded_arms">Folded Arms (လက်ပိုက်ရပ်ဟန်)</option>
-                    <option value="thinker">The Thinker (စဉ်းစားတွေးတောဟန်)</option>
+                    <option value="crouch">Athletic Guard / Crouch (အသင့်အနေအထား ငုံ့ဟန်)</option>
+                    <option value="runway">Runway Stride (ဖက်ရှင်လမ်းလျှောက်ဟန်)</option>
+                    <option value="ballet">Ballet Port de Bras (ဘဲလေးကဟန်)</option>
+                    <option value="sleeping">Lying Down / Rest (အိပ်စက်အနားယူဟန်)</option>
+                    <option value="combat">Combat / Action Stance (တိုက်ခိုက်ရေးဟန်)</option>
+                    <option value="sprint">Full Sprint (အပြေးဟန်)</option>
                 </select>
             </div>
 
@@ -244,7 +250,6 @@
             document.getElementById('status-toast').innerText = txt;
         }
 
-        // Rig Pattern Matcher (Upperleg/Thigh, Lowerleg/Calf အားလုံး ၁၃ ဆစ်လုံး အတိအကျ ချိတ်ဆက်သည်)
         const ANATOMICAL_JOINTS = [
             { key: 'head', label: 'Head (ဦးခေါင်း)', side: null, keywords: ['head', 'skull'] },
             { key: 'neck', label: 'Neck (လည်ပင်း)', side: null, keywords: ['neck'] },
@@ -272,7 +277,7 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0e0e13);
 
-            // Camera Near: 0.01 ထားရှိသဖြင့် အနီးကပ် Zoom In ဆွဲပါက မော်ဒယ်လုံးဝ မပျောက်ပါ
+            // Camera Near = 0.01 (Zoom in ဆွဲပါက မော်ဒယ်လုံးဝ မပျောက်ပါ)
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 500);
             camera.position.set(0, 1.25, 2.7);
 
@@ -282,7 +287,6 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // Tone mapping for balanced contrast without lighting blowout
             renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
@@ -291,11 +295,11 @@
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.target.set(0, 0.9, 0);
             controls.enableDamping = true;
-            controls.minDistance = 0.1; // အနီးဆုံး ကပ်ကြည့်နိုင်သော အကွာအဝေး
+            controls.minDistance = 0.05;
 
-            // Studio Turntable Platform (Radius 1.4m - ကျယ်ဝန်းသော အဝိုင်းပြား)
+            // Turntable Platform (Radius 1.3m)
             floorPedestal = new THREE.Mesh(
-                new THREE.CylinderGeometry(1.4, 1.4, 0.03, 48),
+                new THREE.CylinderGeometry(1.3, 1.3, 0.03, 48),
                 new THREE.MeshStandardMaterial({ color: 0x181824, roughness: 0.85, metalness: 0.1 })
             );
             floorPedestal.position.set(0, -0.015, 0);
@@ -554,7 +558,7 @@
 
             characterModel.traverse((child) => {
                 child.visible = true;
-                // frustumCulled: false ကြောင့် Zoom In အနီးကပ်ဆွဲချိန်တွင် မော်ဒယ် လုံးဝ မပျောက်ပါ
+                // frustumCulled = false (Zoom In အနီးကပ်ဆွဲချိန်တွင် မော်ဒယ်လုံးဝ မပျောက်ပါ)
                 child.frustumCulled = false;
 
                 if (child.isMesh) {
@@ -580,7 +584,7 @@
 
             scene.add(characterModel);
 
-            // Scale to 1.75m & Ground directly on Pedestal Center
+            // Scale to 1.75m & Grounding directly on Pedestal Center
             normalizeModelScale(characterModel);
             groundAndCenterModel();
 
@@ -612,7 +616,6 @@
             currentDeltas[b.name] = { x: 0, y: 0, z: 0 };
         }
 
-        // Texture Preservation + Plaster/Planar Shading Engine
         function applyMaterialStyling(mesh, mode) {
             const orig = mesh.userData.origMaterial;
             if (!orig) return;
@@ -683,25 +686,44 @@
             }
         }
 
-        // Automatic Grounding: ခြေထောက်အား စင်မြင့်မျက်နှာပြင် (Y = 0) ပေါ်သို့ အတိအကျ ကျရောက်ထိကပ်စေခြင်း
-        function groundAndCenterModel(yDrop = 0) {
+        // Automatic Grounding & Centering: အရိုးများ၏ အနိမ့်ဆုံးတည်နေရာအလိုက် ခြေဖဝါးအား စင်မြင့်မျက်နှာပြင် Y=0 ပေါ် တိုက်ရိုက်ထိကပ်စေခြင်း
+        function groundAndCenterModel(floatingOffset = 0) {
             if (!characterModel) return;
 
             characterModel.updateMatrixWorld(true);
-            const box = new THREE.Box3().setFromObject(characterModel);
-            if (box.isEmpty()) return;
 
-            // 1. Lower to Pedestal Surface (Y = 0)
-            const currentMinY = box.min.y;
-            characterModel.position.y -= currentMinY;
-            if (yDrop !== 0) characterModel.position.y -= yDrop;
+            // 1. Center Horizontally using Pelvis/Root bone
+            const rootKey = boneMap['pelvis'] || Object.keys(bones)[0];
+            if (rootKey && bones[rootKey]) {
+                const rootPos = new THREE.Vector3();
+                bones[rootKey].getWorldPosition(rootPos);
+                characterModel.position.x -= rootPos.x;
+                characterModel.position.z -= rootPos.z;
+            }
 
-            // 2. Center horizontally on Pedestal Center (0, 0)
             characterModel.updateMatrixWorld(true);
-            const updatedBox = new THREE.Box3().setFromObject(characterModel);
-            const center = updatedBox.getCenter(new THREE.Vector3());
-            characterModel.position.x -= center.x;
-            characterModel.position.z -= center.z;
+
+            // 2. Find lowest bone position (Feets/Hips/Knees)
+            let lowestBoneY = Infinity;
+            Object.values(bones).forEach(b => {
+                const wp = new THREE.Vector3();
+                b.getWorldPosition(wp);
+                if (wp.y < lowestBoneY) lowestBoneY = wp.y;
+            });
+
+            if (isFinite(lowestBoneY)) {
+                // Foot bones are ~0.04m above the skin surface of the foot
+                const soleY = lowestBoneY - 0.04;
+                characterModel.position.y -= soleY;
+            } else {
+                const box = new THREE.Box3().setFromObject(characterModel);
+                characterModel.position.y -= box.min.y;
+            }
+
+            // Apply special floating offset if pose requires (e.g. ascending/levitating)
+            if (floatingOffset !== 0) {
+                characterModel.position.y += floatingOffset;
+            }
 
             characterModel.updateMatrixWorld(true);
         }
@@ -871,7 +893,7 @@
             loadBoneRotations();
         }
 
-        // Anatomically Calibrated Everyday Movement Presets (တိကျမှန်ကန်သော ခန္ဓာဗေဒ လှုပ်ရှားဟန်များ)
+        // 12 Rich Anatomical Movement Presets (Images 19 - 28 အချိုးကျ တိကျမှုစနစ်)
         function applyPresetPose(pose) {
             resetAllBonesToRestPose();
 
@@ -880,70 +902,154 @@
                 if (actualName) applyRotationToBoneName(actualName, dx, dy, dz);
             };
 
-            let yDrop = 0;
+            let floatingOffset = 0;
 
             if (pose === 'contrapposto') {
-                // တင်ပါးဆုံ ညာဘက်အလေးပေးစောင်း၊ ကျောရိုးနှင့်လည်ပင်း တန်ပြန်ဟန်ချက်ထိန်း
+                // ဂန္ထဝင် အလေးပေးရပ်ဟန် (Image 22 style subtle contrapposto)
                 applyJointDelta('pelvis', 0, 0, -4);
-                applyJointDelta('waist', -2, 3, 4);
-                applyJointDelta('chest', 2, -2, -2);
-                applyJointDelta('head', -3, 10, -2);
-                applyJointDelta('upperleg_r', 0, 0, 3);
-                applyJointDelta('upperleg_l', -16, 0, -6);
-                applyJointDelta('lowerleg_l', 24, 0, 0);
-                applyJointDelta('upperarm_r', -10, 0, 12);
-                applyJointDelta('lowerarm_r', -15, 0, 10);
-                applyJointDelta('upperarm_l', -8, 0, -8);
-            } else if (pose === 'sitting') {
-                // ကုလားထိုင် ထိုင်ဟန် (ပေါင်ရှေ့သို့ ၈၅ ဒီဂရီ၊ ဒူးဆစ် ၉၀ ဒီဂရီ ကွေး၊ ပေါင်အောက်သို့ ကျစေသည်)
-                yDrop = 0.42;
-                applyJointDelta('upperleg_l', 85, 0, -6);
-                applyJointDelta('upperleg_r', 85, 0, 6);
-                applyJointDelta('lowerleg_l', -90, 0, 0);
-                applyJointDelta('lowerleg_r', -90, 0, 0);
-                applyJointDelta('waist', -6, 0, 0);
-                applyJointDelta('chest', -4, 0, 0);
-                applyJointDelta('upperarm_l', 20, 0, -10);
-                applyJointDelta('lowerarm_l', 40, 0, 0);
-                applyJointDelta('upperarm_r', 20, 0, 10);
-                applyJointDelta('lowerarm_r', 40, 0, 0);
-            } else if (pose === 'walking') {
-                // လမ်းလျှောက်ဟန် (ညာခြေလှမ်းရှေ့၊ ဘယ်ခြေနောက်ဆန့်၊ လက်နှစ်ဖက် ဆန့်ကျင်ဘက် လွှဲဟန်)
-                applyJointDelta('pelvis', 0, -8, 0);
-                applyJointDelta('upperleg_r', 28, 0, 0);
-                applyJointDelta('lowerleg_r', -12, 0, 0);
-                applyJointDelta('upperleg_l', -22, 0, 0);
-                applyJointDelta('lowerleg_l', -26, 0, 0);
-                applyJointDelta('upperarm_l', 26, 0, -8);
-                applyJointDelta('lowerarm_l', 30, 0, 0);
-                applyJointDelta('upperarm_r', -22, 0, 8);
-                applyJointDelta('waist', -2, 6, 0);
-            } else if (pose === 'folded_arms') {
-                // လက်ပိုက်ရပ်ဟန် (လက်မောင်းနှစ်ဖက် ရှေ့ရင်ဘတ်ပေါ်သို့ သဘာဝကျစွာ အံဝင်ခွင်ကျ လက်ပိုက်သည်)
-                applyJointDelta('upperarm_l', 32, 25, 25);
-                applyJointDelta('lowerarm_l', 98, 0, 0);
-                applyJointDelta('upperarm_r', 35, -25, -25);
-                applyJointDelta('lowerarm_r', 95, 0, 0);
-                applyJointDelta('waist', -3, 0, 0);
-                applyJointDelta('chest', -2, 0, 0);
-            } else if (pose === 'thinker') {
-                // စဉ်းစားတွေးတောဟန် (ထိုင်လျက် ရင်ဘတ်ရှေ့ကိုင်း၊ ညာတံတောင်ဆစ် ဒူးပေါ်ထောက်၊ မေးစေ့လက်ထိန်း)
-                yDrop = 0.42;
-                applyJointDelta('upperleg_l', 74, 0, -12);
-                applyJointDelta('upperleg_r', 78, 0, 4);
+                applyJointDelta('waist', 2, 4, 4);
+                applyJointDelta('chest', -2, -2, -2);
+                applyJointDelta('head', 2, 10, -2);
+                applyJointDelta('upperleg_r', 0, 0, 2);
+                applyJointDelta('upperleg_l', 16, 0, -6);
+                applyJointDelta('lowerleg_l', -22, 0, 0);
+                applyJointDelta('upperarm_r', 8, 0, 8);
+                applyJointDelta('upperarm_l', 6, 0, -6);
+            } 
+            else if (pose === 'thinker') {
+                // Image 19: The Thinker (Rodin) - ရင်အုပ်ကိုင်းညွတ်၊ ညာလက်တံတောင်ဆစ် ဒူးပေါ်ထောက်၊ မေးရိုးလက်ထိန်း
+                applyJointDelta('upperleg_l', 76, 0, -12);
+                applyJointDelta('upperleg_r', 78, 0, 8);
                 applyJointDelta('lowerleg_l', -85, 0, 0);
                 applyJointDelta('lowerleg_r', -85, 0, 0);
-                applyJointDelta('waist', -32, 14, 0); // ရှေ့သို့ ကိုင်းညွတ်ဟန်
-                applyJointDelta('chest', -24, 8, 0);
-                applyJointDelta('head', -18, 12, 0);
-                applyJointDelta('upperarm_r', 45, 15, -18);
-                applyJointDelta('lowerarm_r', 115, 0, 0);
-                applyJointDelta('upperarm_l', 30, 0, -10);
-                applyJointDelta('lowerarm_l', 50, 0, 0);
+                applyJointDelta('waist', 38, -14, 0); // ရင်ဘတ် ရှေ့သို့နက်ရှိုင်းစွာ ကိုင်းညွတ်ဟန်
+                applyJointDelta('chest', 28, -6, 0);
+                applyJointDelta('head', 20, 15, 0);
+                applyJointDelta('upperarm_r', 65, -20, 18);
+                applyJointDelta('lowerarm_r', 115, 0, 0); // မေးစေ့အောက် လက်သီးဆုပ်ထိန်းထားဟန်
+                applyJointDelta('upperarm_l', 45, 0, -10);
+                applyJointDelta('lowerarm_l', 60, 0, 0);
+            } 
+            else if (pose === 'ascending') {
+                // Image 20: Ascending / Levitating - လေထဲမျောလွင့်၊ ဦးခေါင်းနောက်လှန်၊ လက်မောင်းဘေးဆန့်၊ ကျောခုံးဟန်
+                floatingOffset = 0.75; // လေထဲသို့ မျောတက်စေသည်
+                applyJointDelta('head', -35, 0, 0); // ဦးခေါင်း မိုးပေါ်သို့ မော့ကြည့်ဟန်
+                applyJointDelta('chest', -25, 0, 0);
+                applyJointDelta('waist', -15, 0, 0);
+                applyJointDelta('upperarm_l', -35, 20, -55);
+                applyJointDelta('lowerarm_l', 25, 0, 0);
+                applyJointDelta('upperarm_r', -35, -20, 55);
+                applyJointDelta('lowerarm_r', 25, 0, 0);
+                applyJointDelta('upperleg_l', -15, 0, -10);
+                applyJointDelta('lowerleg_l', -25, 0, 0);
+                applyJointDelta('upperleg_r', -20, 0, 10);
+                applyJointDelta('lowerleg_r', -15, 0, 0);
+            } 
+            else if (pose === 'reading') {
+                // Image 21: Cross-Legged Reading - တင်ပျဉ်ခွေထိုင်၊ ဦးခေါင်းငုံ့၊ စာအုပ်လက်နှစ်ဖက်ကိုင်ဟန်
+                applyJointDelta('upperleg_l', 70, 25, -45); // ပေါင်ကား၍ တင်ပျဉ်ခွေဟန်
+                applyJointDelta('upperleg_r', 70, -25, 45);
+                applyJointDelta('lowerleg_l', -115, 0, 0);
+                applyJointDelta('lowerleg_r', -115, 0, 0);
+                applyJointDelta('waist', 20, 0, 0);
+                applyJointDelta('chest', 15, 0, 0);
+                applyJointDelta('head', 26, 0, 0); // စာအုပ်ဆီသို့ ဦးခေါင်းငုံ့ဟန်
+                applyJointDelta('upperarm_l', 42, 20, -15);
+                applyJointDelta('lowerarm_l', 85, 0, 0);
+                applyJointDelta('upperarm_r', 42, -20, 15);
+                applyJointDelta('lowerarm_r', 85, 0, 0);
+            } 
+            else if (pose === 'folded_arms') {
+                // Image 22: Folded Arms - လက်မောင်းနှစ်ဖက် ရှေ့ရင်ဘတ်ပေါ်သို့ အံဝင်ခွင်ကျ လက်ပိုက်ဟန်
+                applyJointDelta('upperarm_l', 40, 26, -22);
+                applyJointDelta('lowerarm_l', 90, 0, 0);
+                applyJointDelta('upperarm_r', 40, -26, 22);
+                applyJointDelta('lowerarm_r', 90, 0, 0);
+                applyJointDelta('waist', 2, 0, 0);
+                applyJointDelta('head', 0, 6, 0);
+            } 
+            else if (pose === 'crouch') {
+                // Image 23: Athletic Guard / Crouch - ပေါင်ကား၊ ဒူးကွေး၊ ကိုယ်ကိုင်း၊ လက်နှစ်ဖက် ဒူးပေါ်ထောက်ဟန်
+                applyJointDelta('upperleg_l', 65, 0, -32);
+                applyJointDelta('upperleg_r', 65, 0, 32);
+                applyJointDelta('lowerleg_l', -80, 0, 0);
+                applyJointDelta('lowerleg_r', -80, 0, 0);
+                applyJointDelta('waist', 45, 0, 0); // ခန္ဓာကိုယ် ရှေ့သို့ကိုင်းညွတ်ဟန်
+                applyJointDelta('chest', 20, 0, 0);
+                applyJointDelta('head', -25, 0, 0);
+                applyJointDelta('upperarm_l', 48, 0, -18);
+                applyJointDelta('lowerarm_l', 35, 0, 0);
+                applyJointDelta('upperarm_r', 48, 0, 18);
+                applyJointDelta('lowerarm_r', 35, 0, 0);
+            } 
+            else if (pose === 'runway') {
+                // Image 24: Runway Stride - ဖက်ရှင်မော်ဒယ် လမ်းလျှောက်ဟန် (ကျော့ရှင်းသော ခြေလှမ်းနှင့် လက်လွှဲဟန်)
+                applyJointDelta('pelvis', 0, 8, -3);
+                applyJointDelta('upperleg_r', 34, 0, 2);
+                applyJointDelta('lowerleg_r', -10, 0, 0);
+                applyJointDelta('upperleg_l', -22, 0, -2);
+                applyJointDelta('lowerleg_l', -24, 0, 0);
+                applyJointDelta('upperarm_l', 25, 0, -8);
+                applyJointDelta('lowerarm_l', 15, 0, 0);
+                applyJointDelta('upperarm_r', -18, 0, 8);
+                applyJointDelta('chest', -2, -6, 2);
+                applyJointDelta('head', 2, 8, 0);
+            } 
+            else if (pose === 'ballet') {
+                // Image 25: Ballet Port de Bras - ဘဲလေး ညာလက်ခေါင်းပေါ်ကွေးမြှောက်၊ ဘယ်လက်ရင်ဘတ်ရှေ့ဝိုက်ဟန်
+                applyJointDelta('chest', -10, -5, 0);
+                applyJointDelta('head', -5, 20, -5);
+                applyJointDelta('upperarm_r', 15, 20, 125); // ညာလက် ခေါင်းပေါ်သို့ ကျော့ရှင်းစွာ ကွေးမြှောက်ဟန်
+                applyJointDelta('lowerarm_r', 55, 0, 0);
+                applyJointDelta('upperarm_l', 30, 0, -55);
+                applyJointDelta('lowerarm_l', 45, 0, 0);
+                applyJointDelta('upperleg_l', 10, 0, -8);
+                applyJointDelta('upperleg_r', -18, 0, 8);
+                applyJointDelta('lowerleg_r', -15, 0, 0);
+            } 
+            else if (pose === 'sleeping') {
+                // Image 26: Lying Down / Rest - ကြမ်းပြင်ပေါ် ဘေးတစောင်း အိပ်စက်အနားယူဟန်
+                applyJointDelta('pelvis', 0, 75, 80); // ခန္ဓာကိုယ်အား ကြမ်းပြင်သို့ လှဲချစေသည်
+                applyJointDelta('upperleg_l', 45, 0, 0);
+                applyJointDelta('lowerleg_l', -55, 0, 0);
+                applyJointDelta('upperleg_r', 10, 0, 0);
+                applyJointDelta('upperarm_l', 55, 25, 0);
+                applyJointDelta('lowerarm_l', 90, 0, 0);
+                applyJointDelta('upperarm_r', 65, -25, 0);
+                applyJointDelta('lowerarm_r', 90, 0, 0);
+            } 
+            else if (pose === 'combat') {
+                // Image 27: Combat / Action Stance - ဓားရေးတိုက်ခိုက်ဟန် (ခြေလှမ်းကျယ်ကျယ်ခွင်၊ ကိုယ်လိမ်၊ လက်ဆန့်ဟန်)
+                applyJointDelta('pelvis', 0, 25, 0);
+                applyJointDelta('upperleg_l', 55, 0, -18);
+                applyJointDelta('lowerleg_l', -65, 0, 0);
+                applyJointDelta('upperleg_r', -35, 0, 18);
+                applyJointDelta('lowerleg_r', -25, 0, 0);
+                applyJointDelta('waist', 20, 28, 0); // ခန္ဓာကိုယ် လိမ်ကျစ်ဟန်
+                applyJointDelta('chest', 15, 15, 0);
+                applyJointDelta('head', -5, -35, 0);
+                applyJointDelta('upperarm_l', 45, 15, -45);
+                applyJointDelta('lowerarm_l', 70, 0, 0);
+                applyJointDelta('upperarm_r', -45, -20, 75);
+                applyJointDelta('lowerarm_r', 35, 0, 0);
+            } 
+            else if (pose === 'sprint') {
+                // Image 28: Full Sprint - ပြေးအားအပြည့်ဟန် (ဒူးတစ်ဖက် အမြင့်မြှောက်၊ လက်နှစ်ဖက် လွှဲဟန်)
+                applyJointDelta('waist', 30, 0, 0); // ခန္ဓာကိုယ် ရှေ့သို့ စောင်းပြေးဟန်
+                applyJointDelta('chest', 15, 0, 0);
+                applyJointDelta('head', -25, 0, 0);
+                applyJointDelta('upperleg_r', 75, 0, 0); // ညာဒူး အမြင့်မြှောက်ဟန်
+                applyJointDelta('lowerleg_r', -85, 0, 0);
+                applyJointDelta('upperleg_l', -35, 0, 0);
+                applyJointDelta('lowerleg_l', -25, 0, 0);
+                applyJointDelta('upperarm_l', 55, 0, 0); // ဘယ်လက် ရှေ့လွှဲ
+                applyJointDelta('lowerarm_l', 85, 0, 0);
+                applyJointDelta('upperarm_r', -45, 0, 0); // ညာလက် နောက်လွှဲ
+                applyJointDelta('lowerarm_r', 85, 0, 0);
             }
 
-            // အလိုအလျောက် စင်မြင့်ပေါ် ပြန်လည်ထိကပ်စေခြင်း (လေထဲတွင် မျောမနေစေပါ)
-            groundAndCenterModel(yDrop);
+            // အလိုအလျောက် စင်မြင့်မျက်နှာပြင်ပေါ်သို့ တိကျစွာ ကျရောက်ထိကပ်စေခြင်း
+            groundAndCenterModel(floatingOffset);
             loadBoneRotations();
         }
 
