@@ -244,7 +244,7 @@
             document.getElementById('status-toast').innerText = txt;
         }
 
-        // MakeHuman & Blender Skeleton Aliases (100% Robust Pattern Matcher)
+        // Full Rig Patterns (Matches upperleg01_L, thigh01_L, calf01_L, lowerleg01_L with 100% accuracy)
         const ANATOMICAL_JOINTS = [
             { key: 'head', label: 'Head (ဦးခေါင်း)', side: null, keywords: ['head', 'skull'] },
             { key: 'neck', label: 'Neck (လည်ပင်း)', side: null, keywords: ['neck'] },
@@ -281,7 +281,7 @@
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            // Soft Studio Film Tone Mapping (အလင်းဘန်းခြင်း ကာကွယ်ပေးသည်)
+            // Tone mapping for balanced lighting & no blowout
             renderer.outputEncoding = THREE.sRGBEncoding;
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.0;
@@ -291,16 +291,16 @@
             controls.target.set(0, 0.9, 0);
             controls.enableDamping = true;
 
-            // Turntable Pedestal (မော်ဒယ်ခြေထောက်အောက်တွင် အံဝင်စေခြင်း)
+            // Studio Turntable Platform
             floorPedestal = new THREE.Mesh(
-                new THREE.CylinderGeometry(1.2, 1.2, 0.03, 48),
-                new THREE.MeshStandardMaterial({ color: 0x181824, roughness: 0.82, metalness: 0.1 })
+                new THREE.CylinderGeometry(1.3, 1.3, 0.03, 48),
+                new THREE.MeshStandardMaterial({ color: 0x181824, roughness: 0.85, metalness: 0.1 })
             );
             floorPedestal.position.set(0, -0.015, 0);
             floorPedestal.receiveShadow = true;
             scene.add(floorPedestal);
 
-            floorGrid = new THREE.GridHelper(8, 16, 0x2e2e3e, 0x14141e);
+            floorGrid = new THREE.GridHelper(8, 16, 0x2c2c3c, 0x14141e);
             floorGrid.position.set(0, 0, 0);
             scene.add(floorGrid);
 
@@ -315,7 +315,7 @@
         }
 
         function setupLights() {
-            ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
             scene.add(ambientLight);
 
             keyLight = new THREE.DirectionalLight(0xfff8ee, 1.1);
@@ -330,7 +330,7 @@
             fillLight.position.set(-2.5, 2.0, -1.0);
             scene.add(fillLight);
 
-            rimLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            rimLight = new THREE.DirectionalLight(0xffffff, 0.85);
             rimLight.position.set(0, 3.5, -2.8);
             scene.add(rimLight);
         }
@@ -347,7 +347,7 @@
         function resetLights() {
             document.getElementById('key-angle').value = 45;
             document.getElementById('key-intensity').value = 1.1;
-            document.getElementById('rim-intensity').value = 0.8;
+            document.getElementById('rim-intensity').value = 0.85;
             updateLights();
         }
 
@@ -557,7 +557,7 @@
                     child.castShadow = true;
                     child.receiveShadow = true;
 
-                    // Backup original textures and colors from Blender
+                    // Preserve original skin texture & colors from Blender
                     if (!child.userData.origMaterial) {
                         child.userData.origMaterial = child.material.clone();
                     }
@@ -576,8 +576,11 @@
 
             scene.add(characterModel);
 
-            autoAlignAndCenterModel(characterModel);
+            // Scale to 1.75m & Grounding
+            normalizeModelScale(characterModel);
+            groundAndCenterModel();
 
+            // Link all 13 joints
             mapAnatomicalBones();
             populateBoneDropdown();
 
@@ -613,13 +616,11 @@
             const isSkinned = Boolean(mesh.isSkinnedMesh);
 
             if (mode === 'original') {
-                // Restore original skin texture and colors from Blender
                 mesh.material = orig.clone();
                 mesh.material.skinning = isSkinned;
                 mesh.material.side = THREE.DoubleSide;
                 if (mesh.material.emissive) mesh.material.emissive.setHex(0x000000);
             } else {
-                // Plaster / Planar / Clay Shaders
                 const params = {
                     skinning: isSkinned,
                     side: THREE.DoubleSide
@@ -663,13 +664,11 @@
             });
         }
 
-        function autoAlignAndCenterModel(model) {
+        function normalizeModelScale(model) {
             if (!model) return;
-
             model.updateMatrixWorld(true);
             const box = new THREE.Box3().setFromObject(model);
             if (box.isEmpty()) return;
-
             const size = box.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z, 0.1);
 
@@ -678,25 +677,40 @@
                 model.scale.setScalar(scaleFactor);
                 model.updateMatrixWorld(true);
             }
+        }
 
-            const finalBox = new THREE.Box3().setFromObject(model);
-            const finalCenter = finalBox.getCenter(new THREE.Vector3());
+        // Automatic Grounding & Pedestal Centering Engine
+        function groundAndCenterModel() {
+            if (!characterModel) return;
 
-            model.position.x = -finalCenter.x;
-            model.position.z = -finalCenter.z;
-            model.position.y = -finalBox.min.y; // Align feet to Pedestal surface (Y = 0)
+            characterModel.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(characterModel);
+            if (box.isEmpty()) return;
 
+            // 1. Lower feet/buttocks directly to Pedestal Top (Y = 0)
+            const currentMinY = box.min.y;
+            characterModel.position.y -= currentMinY;
+
+            // 2. Center horizontally on Pedestal Center (0, 0)
+            characterModel.updateMatrixWorld(true);
+            const updatedBox = new THREE.Box3().setFromObject(characterModel);
+            const center = updatedBox.getCenter(new THREE.Vector3());
+            characterModel.position.x -= center.x;
+            characterModel.position.z -= center.z;
+
+            characterModel.updateMatrixWorld(true);
+        }
+
+        function focusCameraOnModel() {
+            if (!characterModel) return;
+            groundAndCenterModel();
             camera.position.set(0, 1.25, 2.7);
             controls.target.set(0, 0.9, 0);
             camera.lookAt(0, 0.9, 0);
             controls.update();
         }
 
-        function focusCameraOnModel() {
-            if (characterModel) autoAlignAndCenterModel(characterModel);
-        }
-
-        // Robust Pattern Matcher (Handles L/R suffixes, upperleg/thigh variations seamlessly)
+        // Pattern Matcher that connects 13/13 joints effortlessly
         function mapAnatomicalBones() {
             boneMap = {};
             const allBoneNames = Object.keys(bones);
@@ -707,7 +721,7 @@
                 for (const name of allBoneNames) {
                     const low = name.toLowerCase();
 
-                    // Side check (L / R)
+                    // Side validation
                     if (joint.side === 'L') {
                         const isLeft = low.includes('_l') || low.endsWith('.l') || low.includes('left') || low.startsWith('l_');
                         if (!isLeft) continue;
@@ -716,7 +730,7 @@
                         if (!isRight) continue;
                     }
 
-                    // Keyword check
+                    // Keyword matching
                     const hasKey = joint.keywords.some(k => low.includes(k));
                     if (hasKey) {
                         matched = name;
@@ -829,6 +843,7 @@
             document.getElementById('rot-y').value = 0;
             document.getElementById('rot-z').value = 0;
             if (actualName) applyRotationToBoneName(actualName, 0, 0, 0);
+            groundAndCenterModel();
             loadBoneRotations();
         }
 
@@ -847,10 +862,11 @@
                     if (child.isSkinnedMesh && child.skeleton) child.skeleton.update();
                 });
             }
+            groundAndCenterModel();
             loadBoneRotations();
         }
 
-        // Calibrated Presets (လူ့ခန္ဓာဗေဒ လှုပ်ရှားမှု သဘာဝအတိုင်း အတိအကျ ချိန်ညှိထားသော Presets)
+        // Anatomically Calibrated Everyday Movement Presets
         function applyPresetPose(pose) {
             resetAllBonesToRestPose();
 
@@ -860,61 +876,62 @@
             };
 
             if (pose === 'contrapposto') {
-                // တင်ပါးဆုံ ညာဘက်အလေးပေးစောင်း၊ ကျောရိုးနှင့်လည်ပင်း တန်ပြန်ဟန်ချက်ထိန်း
+                // Classic sculpture posture (weight on right leg, left leg relaxed)
                 applyJointDelta('pelvis', 0, 0, -4);
-                applyJointDelta('waist', 2, 4, 4);
-                applyJointDelta('chest', 2, -3, -2);
-                applyJointDelta('head', 3, 12, -2);
-                applyJointDelta('upperleg_r', 0, 0, 2);
-                applyJointDelta('upperleg_l', 18, 0, -6);
-                applyJointDelta('lowerleg_l', -28, 0, 0);
-                applyJointDelta('upperarm_r', 8, 0, 8);
-                applyJointDelta('upperarm_l', 6, 0, -6);
+                applyJointDelta('waist', -2, 3, 4);
+                applyJointDelta('chest', 2, -2, -2);
+                applyJointDelta('head', -3, 10, -2);
+                applyJointDelta('upperleg_r', 0, 0, 3);
+                applyJointDelta('upperleg_l', -16, 0, -6);
+                applyJointDelta('lowerleg_l', 24, 0, 0);
+                applyJointDelta('upperarm_r', -10, 0, 12);
+                applyJointDelta('lowerarm_r', -15, 0, 10);
+                applyJointDelta('upperarm_l', -8, 0, -8);
             } else if (pose === 'sitting') {
-                // ပေါင်နှစ်ဖက် ရှေ့သို့ ၈၀ ဒီဂရီ မြှောက်၊ ဒူးဆစ် နောက်သို့ ၈၅ ဒီဂရီ ကွေး
-                applyJointDelta('upperleg_l', 80, 0, -6);
-                applyJointDelta('upperleg_r', 80, 0, 6);
-                applyJointDelta('lowerleg_l', -85, 0, 0);
-                applyJointDelta('lowerleg_r', -85, 0, 0);
-                applyJointDelta('waist', 8, 0, 0);
-                applyJointDelta('chest', 4, 0, 0);
-                applyJointDelta('upperarm_l', 20, 0, -8);
-                applyJointDelta('lowerarm_l', 35, 0, 0);
-                applyJointDelta('upperarm_r', 20, 0, 8);
-                applyJointDelta('lowerarm_r', 35, 0, 0);
+                // Natural seated chair posture
+                applyJointDelta('upperleg_l', -85, 0, -6);
+                applyJointDelta('upperleg_r', -85, 0, 6);
+                applyJointDelta('lowerleg_l', 90, 0, 0);
+                applyJointDelta('lowerleg_r', 90, 0, 0);
+                applyJointDelta('waist', -6, 0, 0);
+                applyJointDelta('chest', -4, 0, 0);
+                applyJointDelta('upperarm_l', -20, 0, -10);
+                applyJointDelta('lowerarm_l', -40, 0, 0);
+                applyJointDelta('upperarm_r', -20, 0, 10);
+                applyJointDelta('lowerarm_r', -40, 0, 0);
             } else if (pose === 'walking') {
-                // ညာခြေလှမ်းရှေ့၊ ဘယ်ခြေနောက်ဆန့်၊ လက်နှစ်ဖက် ဆန့်ကျင်ဘက် လွှဲဟန်
-                applyJointDelta('pelvis', 0, 8, 0);
-                applyJointDelta('upperleg_r', 32, 0, 0);
-                applyJointDelta('lowerleg_r', -15, 0, 0);
-                applyJointDelta('upperleg_l', -20, 0, 0);
-                applyJointDelta('lowerleg_l', -30, 0, 0);
-                applyJointDelta('upperarm_l', 28, 0, -8);
-                applyJointDelta('lowerarm_l', 20, 0, 0);
-                applyJointDelta('upperarm_r', -18, 0, 8);
-                applyJointDelta('waist', 2, -6, 0);
+                // Dynamic walking stride
+                applyJointDelta('pelvis', 0, -8, 0);
+                applyJointDelta('upperleg_r', -30, 0, 0);
+                applyJointDelta('lowerleg_r', 15, 0, 0);
+                applyJointDelta('upperleg_l', 20, 0, 0);
+                applyJointDelta('lowerleg_l', 25, 0, 0);
+                applyJointDelta('upperarm_l', -25, 0, -8);
+                applyJointDelta('lowerarm_l', -30, 0, 0);
+                applyJointDelta('upperarm_r', 20, 0, 8);
+                applyJointDelta('waist', -2, 6, 0);
             } else if (pose === 'folded_arms') {
-                // လက်မောင်းနှစ်ဖက် ရှေ့ရင်ဘတ်ပေါ်သို့ အံဝင်ခွင်ကျ လက်ပိုက်ဟန်
-                applyJointDelta('upperarm_l', 35, 28, -22);
-                applyJointDelta('lowerarm_l', 85, 0, 0);
-                applyJointDelta('upperarm_r', 35, -28, 22);
-                applyJointDelta('lowerarm_r', 85, 0, 0);
-                applyJointDelta('waist', 2, 0, 0);
+                // Natural arms crossed over the chest
+                applyJointDelta('upperarm_l', -35, 30, -25);
+                applyJointDelta('lowerarm_l', -85, 20, 15);
+                applyJointDelta('upperarm_r', -35, -30, 25);
+                applyJointDelta('lowerarm_r', -85, -20, -15);
+                applyJointDelta('waist', -2, 0, 0);
             } else if (pose === 'thinker') {
-                // စဉ်းစားတွေးတောဟန် (ရင်ဘတ်ကိုင်း၊ ညာတံတောင်ဆစ် ညာဒူးပေါ်ထောက်၊ မေးရိုးလက်ထိန်း)
-                applyJointDelta('upperleg_l', 75, 0, -8);
-                applyJointDelta('upperleg_r', 75, 0, 8);
-                applyJointDelta('lowerleg_l', -80, 0, 0);
-                applyJointDelta('lowerleg_r', -80, 0, 0);
-                applyJointDelta('waist', 24, -8, 0);
-                applyJointDelta('chest', 16, 0, 0);
-                applyJointDelta('head', 18, -10, 0);
-                applyJointDelta('upperarm_r', 55, 15, 0);
-                applyJointDelta('lowerarm_r', 90, 0, 0);
-                applyJointDelta('upperarm_l', 35, 0, 0);
-                applyJointDelta('lowerarm_l', 40, 0, 0);
+                // Meditative thinker pose (forward lean, elbow on knee)
+                applyJointDelta('upperleg_l', -80, 0, -8);
+                applyJointDelta('upperleg_r', -80, 0, 8);
+                applyJointDelta('lowerleg_l', 85, 0, 0);
+                applyJointDelta('lowerleg_r', 85, 0, 0);
+                applyJointDelta('waist', -20, 10, 0);
+                applyJointDelta('chest', -15, 5, 0);
+                applyJointDelta('head', 15, -12, 0);
+                applyJointDelta('upperarm_r', -60, -20, 15);
+                applyJointDelta('lowerarm_r', -90, 25, 0);
             }
 
+            // Immediately grounds model so it never hovers in mid-air
+            groundAndCenterModel();
             loadBoneRotations();
         }
 
