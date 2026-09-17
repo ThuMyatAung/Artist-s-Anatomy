@@ -70,7 +70,6 @@
             z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
     </style>
-    <!-- Three.js + OrbitControls + GLTFLoader + JSZip -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
@@ -268,7 +267,6 @@
 
         let scene, camera, renderer, controls, floorPedestal, floorGrid;
         let characterModel = null, bones = {}, boneMap = {}, initialRotations = {}, currentDeltas = {};
-        let baseStandingY = 0, standingFootMinY = 0;
         let keyLight, fillLight, rimLight, ambientLight;
         let loadedZip = null, gltfLoader;
 
@@ -278,7 +276,6 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0e0e13);
 
-            // Camera Near = 0.01 (Zoom In မည်မျှပင်ဆွဲစေကာမူ မော်ဒယ်လုံးဝ မပျောက်ပါ)
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 500);
             camera.position.set(0, 1.25, 2.7);
 
@@ -298,9 +295,8 @@
             controls.enableDamping = true;
             controls.minDistance = 0.05;
 
-            // Turntable Platform (Radius 1.5m)
             floorPedestal = new THREE.Mesh(
-                new THREE.CylinderGeometry(1.5, 1.5, 0.03, 48),
+                new THREE.CylinderGeometry(1.4, 1.4, 0.03, 48),
                 new THREE.MeshStandardMaterial({ color: 0x181824, roughness: 0.85, metalness: 0.1 })
             );
             floorPedestal.position.set(0, -0.015, 0);
@@ -559,7 +555,6 @@
 
             characterModel.traverse((child) => {
                 child.visible = true;
-                // frustumCulled: false ကြောင့် Zoom In အနီးကပ်ဆွဲချိန်တွင် မော်ဒယ် လုံးဝ မပျောက်ပါ
                 child.frustumCulled = false;
 
                 if (child.isMesh) {
@@ -584,11 +579,9 @@
 
             scene.add(characterModel);
 
-            // Scale to 1.75m & Initial Grounding Anchor
             normalizeModelScale(characterModel);
-            initGroundAnchor();
+            groundModelAccurately();
 
-            // Link all 13 joints
             mapAnatomicalBones();
             populateBoneDropdown();
 
@@ -686,58 +679,43 @@
             }
         }
 
-        // Anchor character feet directly on pedestal top (Y = 0) at (0, 0, 0)
-        function initGroundAnchor() {
+        // Self-Correcting Grounding (ခြေဖဝါးမျက်နှာပြင်အား စင်မြင့် Y=0 ပေါ် အတိအကျ ထိကပ်စေသည်)
+        function groundModelAccurately(floatingOffset = 0) {
             if (!characterModel) return;
 
             characterModel.updateMatrixWorld(true);
-            const box = new THREE.Box3().setFromObject(characterModel);
-            const center = box.getCenter(new THREE.Vector3());
-
-            characterModel.position.x = -center.x;
-            characterModel.position.z = -center.z;
-            characterModel.position.y = -box.min.y; // Sits precisely on pedestal surface Y = 0
-
-            characterModel.updateMatrixWorld(true);
-            baseStandingY = characterModel.position.y;
-
-            // Measure reference lowest bone in standing pose
-            let minB = Infinity;
-            Object.values(bones).forEach(b => {
-                const p = new THREE.Vector3();
-                b.getWorldPosition(p);
-                if (p.y < minB) minB = p.y;
+            characterModel.traverse(child => {
+                if (child.isSkinnedMesh && child.skeleton) {
+                    child.skeleton.update();
+                }
             });
-            standingFootMinY = minB;
+            scene.updateMatrixWorld(true);
 
-            camera.position.set(0, 1.25, 2.7);
-            controls.target.set(0, 0.9, 0);
-            camera.lookAt(0, 0.9, 0);
-            controls.update();
-        }
-
-        // Precise Grounding Controller (Resolves mid-air hovering for all poses)
-        function applyGroundingForPose(poseType, manualOffset = 0) {
-            if (!characterModel) return;
-
-            // 1. Reset to base anchored standing position
-            characterModel.position.y = baseStandingY;
-            characterModel.position.x = 0;
-            characterModel.position.z = 0;
+            // Center horizontally using Pelvis
+            const pelvisKey = boneMap['pelvis'];
+            if (pelvisKey && bones[pelvisKey]) {
+                const pelvisWorld = new THREE.Vector3();
+                bones[pelvisKey].getWorldPosition(pelvisWorld);
+                characterModel.position.x += (0 - pelvisWorld.x);
+                characterModel.position.z += (0 - pelvisWorld.z);
+            }
             characterModel.updateMatrixWorld(true);
 
-            if (poseType === 'standing') {
-                // Standing poses stay anchored at base Y
-                characterModel.position.y = baseStandingY;
-            } else if (poseType === 'floating') {
-                // Ascending / Levitating floats above pedestal
-                characterModel.position.y = baseStandingY + manualOffset;
-            } else if (poseType === 'seated_on_pedestal') {
-                // Deep seated poses (Thinker, Reading, Crouch) - pelvis drops so thighs/seat rest on pedestal
-                characterModel.position.y = baseStandingY - 0.42;
-            } else if (poseType === 'lying') {
-                // Lying down flat on pedestal
-                characterModel.position.y = baseStandingY - 0.78;
+            // Find lowest bone Y
+            let lowestBoneY = Infinity;
+            const tempPos = new THREE.Vector3();
+            for (const bName in bones) {
+                bones[bName].getWorldPosition(tempPos);
+                if (tempPos.y < lowestBoneY) {
+                    lowestBoneY = tempPos.y;
+                }
+            }
+
+            if (isFinite(lowestBoneY)) {
+                // Foot bone is ~0.04m above skin surface of sole
+                const targetLowestY = 0.04 + floatingOffset;
+                const diffY = targetLowestY - lowestBoneY;
+                characterModel.position.y += diffY;
             }
 
             characterModel.updateMatrixWorld(true);
@@ -745,7 +723,11 @@
 
         function focusCameraOnModel() {
             if (!characterModel) return;
-            initGroundAnchor();
+            groundModelAccurately();
+            camera.position.set(0, 1.25, 2.7);
+            controls.target.set(0, 0.9, 0);
+            camera.lookAt(0, 0.9, 0);
+            controls.update();
         }
 
         function mapAnatomicalBones() {
@@ -878,6 +860,7 @@
             document.getElementById('rot-y').value = 0;
             document.getElementById('rot-z').value = 0;
             if (actualName) applyRotationToBoneName(actualName, 0, 0, 0);
+            groundModelAccurately();
             loadBoneRotations();
         }
 
@@ -896,10 +879,11 @@
                     if (child.isSkinnedMesh && child.skeleton) child.skeleton.update();
                 });
             }
+            groundModelAccurately();
             loadBoneRotations();
         }
 
-        // 12 Anatomically Accurate Movement Presets (Calibrated for Images 19 to 28)
+        // 12 Anatomically Accurate Movement Presets (Images 19 to 28)
         function applyPresetPose(pose) {
             resetAllBonesToRestPose();
 
@@ -908,12 +892,10 @@
                 if (actualName) applyRotationToBoneName(actualName, dx, dy, dz);
             };
 
-            let poseType = 'standing';
-            let floatOffset = 0;
+            let floatingOffset = 0;
 
             if (pose === 'contrapposto') {
-                // Fig 22: Classical subtle posture (weight on right leg, left leg relaxed)
-                poseType = 'standing';
+                // Fig 22: Classical subtle posture
                 applyJointDelta('pelvis', 0, 0, -4);
                 applyJointDelta('waist', 2, 4, 4);
                 applyJointDelta('chest', -2, -2, -2);
@@ -928,7 +910,6 @@
             } 
             else if (pose === 'thinker') {
                 // Fig 19: The Thinker (Rodin) - ရင်အုပ်ကိုင်းညွတ်၊ ညာတံတောင်ဆစ် ဒူးပေါ်ထောက်၊ မေးရိုးလက်ထိန်း
-                poseType = 'seated_on_pedestal';
                 applyJointDelta('upperleg_l', 76, 0, -12);
                 applyJointDelta('upperleg_r', 78, 0, 8);
                 applyJointDelta('lowerleg_l', -85, 0, 0);
@@ -937,14 +918,13 @@
                 applyJointDelta('chest', 28, -6, 0);
                 applyJointDelta('head', 20, 15, 0);
                 applyJointDelta('upperarm_r', 25, 18, -35);
-                applyJointDelta('lowerarm_r', 0, 0, -110); // မေးစေ့အောက် လက်သီးဆုပ်ထိန်းထားဟန်
+                applyJointDelta('lowerarm_r', 0, 0, -110);
                 applyJointDelta('upperarm_l', 25, -10, 18);
                 applyJointDelta('lowerarm_l', 0, 0, 50);
             } 
             else if (pose === 'ascending') {
-                // Fig 20: Ascending / Levitating - လေထဲမျောလွင့်၊ ဦးခေါင်းမော့၊ လက်ဘေးဆန့်၊ ကျောခုံးဟန်
-                poseType = 'floating';
-                floatOffset = 0.65;
+                // Fig 20: Ascending / Levitating - လေထဲမျောလွင့်၊ ဦးခေါင်းမော့၊ လက်ဘေးဆန့်
+                floatingOffset = 0.65;
                 applyJointDelta('head', -35, 0, 0);
                 applyJointDelta('chest', -25, 0, 0);
                 applyJointDelta('waist', -15, 0, 0);
@@ -959,7 +939,6 @@
             } 
             else if (pose === 'reading') {
                 // Fig 21: Cross-Legged Reading - တင်ပျဉ်ခွေထိုင်၊ ဦးခေါင်းငုံ့၊ စာအုပ်လက်ကိုင်
-                poseType = 'seated_on_pedestal';
                 applyJointDelta('upperleg_l', 65, 20, -40);
                 applyJointDelta('upperleg_r', 65, -20, 40);
                 applyJointDelta('lowerleg_l', -115, 0, 0);
@@ -974,7 +953,6 @@
             } 
             else if (pose === 'folded_arms') {
                 // Fig 22: Folded Arms - လက်မောင်းနှစ်ဖက် ရှေ့ရင်ဘတ်ပေါ်သို့ အံဝင်ခွင်ကျ သဘာဝကျစွာ လက်ပိုက်ဟန်
-                poseType = 'standing';
                 applyJointDelta('upperarm_l', -15, 10, 52);
                 applyJointDelta('lowerarm_l', 0, 0, 95);
                 applyJointDelta('upperarm_r', -22, -10, -52);
@@ -984,8 +962,7 @@
                 applyJointDelta('head', 0, 6, 0);
             } 
             else if (pose === 'crouch') {
-                // Fig 23: Athletic Guard / Crouch - ပေါင်ကား၊ ဒူးကွေး၊ လက်ဒူးပေါ်ထောက်၊ ကိုယ်ကိုင်းဟန်
-                poseType = 'seated_on_pedestal';
+                // Fig 23: Athletic Guard / Crouch - ပေါင်ကား၊ ဒူးကွေး၊ လက်ဒူးပေါ်ထောက်
                 applyJointDelta('upperleg_l', 68, 0, -30);
                 applyJointDelta('upperleg_r', 68, 0, 30);
                 applyJointDelta('lowerleg_l', -78, 0, 0);
@@ -1000,7 +977,6 @@
             } 
             else if (pose === 'runway') {
                 // Fig 24: Runway Stride - ဖက်ရှင်မော်ဒယ် လမ်းလျှောက်ဟန်
-                poseType = 'standing';
                 applyJointDelta('pelvis', 0, 6, -3);
                 applyJointDelta('upperleg_r', 32, 0, 2);
                 applyJointDelta('lowerleg_r', -10, 0, 0);
@@ -1015,10 +991,9 @@
             } 
             else if (pose === 'ballet') {
                 // Fig 25: Ballet Port de Bras - ဘဲလေး ညာလက်ခေါင်းပေါ်မြှောက်၊ ဘယ်လက်ရှေ့ဝိုက်ဟန်
-                poseType = 'standing';
                 applyJointDelta('chest', -8, -6, 0);
                 applyJointDelta('head', -6, 18, -4);
-                applyJointDelta('upperarm_r', 18, 25, -115); // ညာလက် ခေါင်းပေါ်သို့ ကျော့ရှင်းစွာ ကွေးမြှောက်ဟန်
+                applyJointDelta('upperarm_r', 18, 25, -115);
                 applyJointDelta('lowerarm_r', 0, 0, -50);
                 applyJointDelta('upperarm_l', -12, 0, 36);
                 applyJointDelta('lowerarm_l', 0, 0, 48);
@@ -1028,7 +1003,6 @@
             } 
             else if (pose === 'sleeping') {
                 // Fig 26: Lying Down / Rest - စင်မြင့်ပေါ် ဘေးတစောင်း အိပ်စက်အနားယူဟန်
-                poseType = 'lying';
                 applyJointDelta('pelvis', 0, 75, 80);
                 applyJointDelta('upperleg_l', 40, 0, 0);
                 applyJointDelta('lowerleg_l', -50, 0, 0);
@@ -1040,7 +1014,6 @@
             } 
             else if (pose === 'combat') {
                 // Fig 27: Combat Action Stance - ခြေလှမ်းခွင်၊ ကိုယ်လိမ်၊ တိုက်ခိုက်ရေးဟန်
-                poseType = 'standing';
                 applyJointDelta('pelvis', 0, 22, 0);
                 applyJointDelta('upperleg_l', 52, 0, -16);
                 applyJointDelta('lowerleg_l', -62, 0, 0);
@@ -1056,7 +1029,6 @@
             } 
             else if (pose === 'sprint') {
                 // Fig 28: Full Sprint - အပြေးဟန် (ဒူးတစ်ဖက် အမြင့်မြှောက်၊ လက်လွှဲဟန်)
-                poseType = 'standing';
                 applyJointDelta('waist', 28, 0, 0);
                 applyJointDelta('chest', 14, 0, 0);
                 applyJointDelta('head', -22, 0, 0);
@@ -1070,8 +1042,8 @@
                 applyJointDelta('lowerarm_r', 0, 0, -80);
             }
 
-            // အလိုအလျောက် စင်မြင့်မျက်နှာပြင် Y=0 ပေါ်သို့ တိကျစွာ ကျရောက်ထိကပ်စေခြင်း
-            applyGroundingForPose(poseType, floatOffset);
+            // စင်မြင့်မျက်နှာပြင် Y=0 ပေါ်သို့ တိကျစွာ အလိုအလျောက် ပြန်လည်ထိကပ်စေသည်
+            groundModelAccurately(floatingOffset);
             loadBoneRotations();
         }
 
