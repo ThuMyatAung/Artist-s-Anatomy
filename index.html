@@ -308,20 +308,66 @@ function fillModelList(){
 function tokens(name){return name.toLowerCase().replace(/[\s._()\-]+/g,' ').split(/\s+/).filter(Boolean)}
 function hasAny(text,arr){return arr.some(x=>text.includes(x))}
 function ageScore(text,a){
- const sets={
-  adult:['adult','grown'],
-  teen:['teen','teenage','adolescent','13 16','13to16'],
-  child:['child','kid','5 7','5to7'],
-  toddler:['toddler','baby','1 2','1to2'],
-  elderly:['elderly','senior','old','70']
+ /*
+  * The Anatomy GLB package uses a mixture of age words and numeric
+  * ages/ranges in filenames.  Caucasian models in particular may be
+  * labelled with numbers (for example 30, 16, 7, 2, 70) rather than
+  * the words Adult / Teen / Child / Toddler.
+  *
+  * Match explicit age tokens first and strongly penalize a different
+  * age group so the first file in the ZIP cannot win a tie.
+  */
+ const t=String(text||'').toLowerCase().replace(/[_.-]+/g,' ');
+ const groups={
+  adult:{words:['adult','grown','30','25','28','29','31','32','35'], ranges:[[18,64]]},
+  teen:{words:['teen','teenage','adolescent','13 16','13to16','13 16'], ranges:[[13,17]]},
+  child:{words:['child','kid','5 7','5to7','5 7'], ranges:[[5,12]]},
+  toddler:{words:['toddler','baby','1 2','1to2','1 2'], ranges:[[1,4]]},
+  elderly:{words:['elderly','senior','70','old'], ranges:[[65,100]]}
  };
- if(sets[a].some(x=>text.includes(x)))return 900;
- /* Explicit negative protection prevents toddler/child/teen from tying. */
- if(a==='adult' && /(teen|child|toddler|baby|elderly|senior)/.test(text))return -700;
- if(a==='teen' && /(adult|child|toddler|baby|elderly|senior)/.test(text))return -700;
- if(a==='child' && /(adult|teen|toddler|baby|elderly|senior)/.test(text))return -700;
- if(a==='toddler' && /(adult|teen|child|elderly|senior)/.test(text))return -700;
- if(a==='elderly' && /(adult|teen|child|toddler|baby)/.test(text))return -700;
+ const target={adult:30,teen:16,child:7,toddler:2,elderly:70}[a];
+ const g=groups[a];
+ if(!g)return 0;
+
+ /* Explicit semantic labels always win. */
+ const semantic={
+  adult:/\b(adult|grown)\b/.test(t),
+  teen:/\b(teen|teenage|adolescent)\b/.test(t),
+  child:/\b(child|kid)\b/.test(t),
+  toddler:/\b(toddler|baby)\b/.test(t),
+  elderly:/\b(elderly|senior|old)\b/.test(t)
+ };
+ if(semantic[a])return 1800;
+
+ /* Explicit ranges such as 13-16, 5-7, 1-2. */
+ const rangeRe=/(\d{1,2})\s*(?:to|through|-)\s*(\d{1,2})/g;
+ let m;
+ while((m=rangeRe.exec(t))){
+  const lo=Number(m[1]),hi=Number(m[2]);
+  if(target>=lo&&target<=hi)return 1700;
+ }
+
+ /* Standalone numeric ages. Do not match digits embedded in words. */
+ const nums=[...t.matchAll(/\b\d{1,2}\b/g)].map(x=>Number(x[0]));
+ if(nums.includes(target))return 1650;
+
+ /* Nearby numeric age gets a graded score. */
+ if(nums.length){
+  const nearest=Math.min(...nums.map(n=>Math.abs(n-target)));
+  if(nearest<=2)return 1100-nearest*150;
+ }
+
+ /* If an explicit other age-group word is present, strongly reject it. */
+ const otherWords={
+  adult:/\b(adult|grown)\b/,
+  teen:/\b(teen|teenage|adolescent)\b/,
+  child:/\b(child|kid)\b/,
+  toddler:/\b(toddler|baby)\b/,
+  elderly:/\b(elderly|senior|old)\b/
+ };
+ for(const k of Object.keys(otherWords)){
+  if(k!==a&&otherWords[k].test(t))return -1800;
+ }
  return 0;
 }
 function findBestMatch(){
