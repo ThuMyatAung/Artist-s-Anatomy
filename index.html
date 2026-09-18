@@ -372,30 +372,44 @@ function ageScore(text,a){
 }
 function findBestMatch(){
  const e=document.getElementById('ethnic').value,g=document.getElementById('gender').value,a=document.getElementById('age').value;
+
+ /*
+  * EXACT MODEL MAP for the supplied models_glb.zip.
+  * Important: some Caucasian files intentionally use "caucasia"
+  * instead of "caucasian" in the filename, so generic substring
+  * matching is unsafe for these models.
+  */
+ const exactCaucasian={
+  'male|adult':'models_glb/caucasian_male_adult.glb',
+  'male|teen':'models_glb/caucasia_male_teen.glb',
+  'male|child':'models_glb/caucasia_male_child.glb',
+  'male|toddler':'models_glb/caucasian_male_toddler.glb',
+  'male|elderly':'models_glb/caucasian_male_Elderly.glb',
+  'female|adult':'models_glb/caucasia_female_adult.glb',
+  'female|teen':'models_glb/caucasia_female_teen.glb',
+  'female|child':'models_glb/caucasia_female_Child.glb',
+  'female|toddler':'models_glb/caucasian_female_toddler.glb',
+  'female|elderly':'models_glb/caucasian_female_elderly.glb'
+ };
+
+ if(e==='caucasian'){
+  const exact=exactCaucasian[g+'|'+a];
+  if(exact && zip && zip.files[exact]) return exact;
+ }
+
+ /* Existing generic matcher is retained for Asian/African and any
+    future package variants. */
  let best=null,bestScore=-Infinity;
  for(const path of modelFiles()){
-  /* Demographic labels may be in a ZIP folder, not the GLB filename. */
-  const full=String(path||'').toLowerCase().replace(/[_.-]+/g,' ');
+  const n=path.split('/').pop().toLowerCase();
   let s=0;
-
-  const hasCauc=/\bcaucasian\b/.test(full);
-  const hasAfr=/\bafrican\b/.test(full);
-  const hasAsian=/\basian\b/.test(full) && !hasCauc;
-  if(e==='caucasian') s += hasCauc ? 3000 : -3000;
-  if(e==='african')   s += hasAfr   ? 3000 : -3000;
-  if(e==='asian')     s += hasAsian ? 3000 : -3000;
-
-  const hasFemale=/\bfemale\b/.test(full);
-  const hasMale=/\bmale\b/.test(full) && !hasFemale;
-  if(g==='female') s += hasFemale ? 1800 : -1800;
-  if(g==='male')   s += hasMale   ? 1800 : -1800;
-
-  /* Age matching also checks parent folders. */
-  s += ageScore(full,a);
-
-  if(new RegExp('\\b'+e+'\\b').test(full))s+=250;
-  if(new RegExp('\\b'+g+'\\b').test(full))s+=180;
-
+  if(e==='caucasian' && n.includes('caucasian'))s+=2000;
+  if(e==='asian' && n.includes('asian') && !n.includes('caucasian'))s+=2000;
+  if(e==='african' && n.includes('african'))s+=2000;
+  if(g==='female' && n.includes('female'))s+=1000;
+  if(g==='male' && n.includes('male') && !n.includes('female'))s+=1000;
+  s+=ageScore(n,a);
+  if(n.includes(e))s+=100;if(n.includes(g))s+=80;
   if(s>bestScore){bestScore=s;best=path}
  }
  return best;
