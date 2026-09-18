@@ -374,16 +374,28 @@ function findBestMatch(){
  const e=document.getElementById('ethnic').value,g=document.getElementById('gender').value,a=document.getElementById('age').value;
  let best=null,bestScore=-Infinity;
  for(const path of modelFiles()){
-  const n=path.split('/').pop().toLowerCase();
+  /* Demographic labels may be in a ZIP folder, not the GLB filename. */
+  const full=String(path||'').toLowerCase().replace(/[_.-]+/g,' ');
   let s=0;
-  if(e==='caucasian' && n.includes('caucasian'))s+=2000;
-  if(e==='asian' && n.includes('asian') && !n.includes('caucasian'))s+=2000;
-  if(e==='african' && n.includes('african'))s+=2000;
-  if(g==='female' && n.includes('female'))s+=1000;
-  if(g==='male' && n.includes('male') && !n.includes('female'))s+=1000;
-  s+=ageScore(n,a);
-  /* Exact requested demographic gets a small bonus from full path tokens. */
-  if(n.includes(e))s+=100;if(n.includes(g))s+=80;
+
+  const hasCauc=/\bcaucasian\b/.test(full);
+  const hasAfr=/\bafrican\b/.test(full);
+  const hasAsian=/\basian\b/.test(full) && !hasCauc;
+  if(e==='caucasian') s += hasCauc ? 3000 : -3000;
+  if(e==='african')   s += hasAfr   ? 3000 : -3000;
+  if(e==='asian')     s += hasAsian ? 3000 : -3000;
+
+  const hasFemale=/\bfemale\b/.test(full);
+  const hasMale=/\bmale\b/.test(full) && !hasFemale;
+  if(g==='female') s += hasFemale ? 1800 : -1800;
+  if(g==='male')   s += hasMale   ? 1800 : -1800;
+
+  /* Age matching also checks parent folders. */
+  s += ageScore(full,a);
+
+  if(new RegExp('\\b'+e+'\\b').test(full))s+=250;
+  if(new RegExp('\\b'+g+'\\b').test(full))s+=180;
+
   if(s>bestScore){bestScore=s;best=path}
  }
  return best;
