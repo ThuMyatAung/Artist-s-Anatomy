@@ -60,7 +60,7 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
 <div id="ui">
   <h1>3D Anatomy Studio</h1>
-  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.6 multi-figure</div>
+  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.7 multi-figure</div>
 
   <div class="tabs">
     <button class="tab active" onclick="tab(this,'model')">Model</button>
@@ -143,6 +143,9 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
     <div class="group"><label>Move Left / Right <span id="pxV">0.00</span></label><input id="posX" type="range" min="-3" max="3" step=".01" value="0" oninput="placeChanged()"></div>
     <div class="group"><label>Move Forth / Back <span id="pzV">0.00</span></label><input id="posZ" type="range" min="-3" max="3" step=".01" value="0" oninput="placeChanged()"></div>
     <div class="group"><label>Face Direction <span id="pfV">0°</span></label><input id="faceY" type="range" min="0" max="360" step="1" value="0" oninput="placeChanged()"></div>
+    <div class="group"><label>Tilt Forward / Back <span id="txV">0°</span></label><input id="tiltX" type="range" min="-180" max="180" step="1" value="0" oninput="tiltChanged()"></div>
+    <div class="group"><label>Tilt Sideways <span id="tzV">0°</span></label><input id="tiltZ" type="range" min="-180" max="180" step="1" value="0" oninput="tiltChanged()"></div>
+    <button onclick="resetTilt()" style="margin-top:2px">Reset Tilt</button>
     <div class="group"><label>Figure Scale <span id="psV">1.00×</span></label><input id="figScale" type="range" min="0.2" max="2.5" step=".01" value="1" oninput="placeChanged()"></div>
 
     <div class="section">Viewport Capture</div>
@@ -543,7 +546,7 @@ function loadModel(root,name,anims){
  anims=anims||[];
  const replace=(loadMode==='replace'&&activeFig)?activeFig:null;
  const fig={id:++figSeq,name:String(name||'Figure').replace(/\.glb$/i,''),root,bones:{},boneMap:{},deltas:{},axes:{},
-  rootRotation:new THREE.Euler(0,0,0),floating:0,group:new THREE.Group(),
+  rootRotation:new THREE.Euler(0,0,0),floating:0,group:new THREE.Group(),fixQuat:new THREE.Quaternion(),tilt:{x:0,z:0},
   place:replace?{x:replace.place.x,z:replace.place.z,rotY:replace.place.rotY,scaleF:replace.place.scaleF}:{x:0,z:0,rotY:0,scaleF:1},
   baseScale:1,shading:document.getElementById('shading').value,mixer:null,clips:anims,action:null,playing:false,
   facing:new THREE.Vector3(0,0,1)};
@@ -552,7 +555,7 @@ function loadModel(root,name,anims){
  const ORIENT_FIX={'gibbon_skull.glb':[0,0,1,0],'funerary_bust.glb':[0.88555,0.42691,0.05599,0.17441],
   'arhat_with_bowl.glb':[-0.70711,0,0,0.70711],'buddha_walking_sukhothai.glb':[0,1,0,0],'naga_kanya.glb':[0,1,0,0],
   'glass_bottle_scan.glb':[0,0,0.70711,0.70711]};
- const ofx=ORIENT_FIX[String(name||'').toLowerCase()];if(ofx)root.quaternion.set(ofx[0],ofx[1],ofx[2],ofx[3]);
+ const ofx=ORIENT_FIX[String(name||'').toLowerCase()];if(ofx){root.quaternion.set(ofx[0],ofx[1],ofx[2],ofx[3]);fig.fixQuat.set(ofx[0],ofx[1],ofx[2],ofx[3])}
  fig.group.add(root);scene.add(fig.group);
  if(replace){
   const i=figures.indexOf(replace);scene.remove(replace.group);figures[i]=fig;
@@ -630,7 +633,7 @@ function syncPlaceUI(){
  const fig=activeFig;if(!fig)return;
  document.getElementById('posX').value=fig.place.x;document.getElementById('posZ').value=fig.place.z;
  document.getElementById('faceY').value=fig.place.rotY;document.getElementById('figScale').value=fig.place.scaleF;
- syncPlaceLabels(fig);
+ syncPlaceLabels(fig);syncTiltUI(fig);
 }
 function focusAll(){
  if(!figures.length)return;
@@ -869,14 +872,42 @@ function manualRotate(){
  applyXYZ(n,x,y,z);document.getElementById('vx').textContent=x+'°';document.getElementById('vy').textContent=y+'°';document.getElementById('vz').textContent=z+'°';ground(false)
 }
 function resetJoint(){const n=actualJoint(document.getElementById('joint').value);if(n)applyXYZ(n,0,0,0);loadJointUI();ground(false)}
+/* v2.7: single writer of a figure's whole-body orientation — user tilt x pose-root rotation x per-model fix.
+   (Before v2.7 resetPose silently overwrote the ORIENT_FIX quaternion, so the fixes never survived a load.) */
+function applyFigOrientation(fig){
+ if(!fig)return;
+ const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(THREE.MathUtils.degToRad((fig.tilt||{}).x||0),0,THREE.MathUtils.degToRad((fig.tilt||{}).z||0)));
+ q.multiply(new THREE.Quaternion().setFromEuler(fig.rootRotation));
+ q.multiply(fig.fixQuat||new THREE.Quaternion());
+ fig.root.quaternion.copy(q);
+}
+function tiltChanged(){
+ const fig=activeFig;if(!fig)return;
+ fig.tilt.x=+document.getElementById('tiltX').value;
+ fig.tilt.z=+document.getElementById('tiltZ').value;
+ syncTiltLabels(fig);applyFigOrientation(fig);ground(false);
+}
+function syncTiltLabels(fig){
+ document.getElementById('txV').textContent=((fig.tilt||{}).x||0)+'°';
+ document.getElementById('tzV').textContent=((fig.tilt||{}).z||0)+'°';
+}
+function syncTiltUI(fig){
+ if(!fig)return;
+ document.getElementById('tiltX').value=(fig.tilt||{}).x||0;
+ document.getElementById('tiltZ').value=(fig.tilt||{}).z||0;
+ syncTiltLabels(fig);
+}
+function resetTilt(){const fig=activeFig;if(!fig)return;fig.tilt={x:0,z:0};syncTiltUI(fig);applyFigOrientation(fig);ground(false)}
 function resetPose(){
  if(!model)return;
  Object.keys(bones).forEach(n=>{bones[n].quaternion.copy(bones[n].userData.restQuat);deltas[n]={x:0,y:0,z:0}});
- rootRotation.set(0,0,0);model.rotation.copy(rootRotation);floating=0;document.getElementById('height').value=0;document.getElementById('heightVal').textContent='0.00';updateSkeleton();ground(true);loadJointUI()
+ rootRotation.set(0,0,0);model.rotation.copy(rootRotation);floating=0;document.getElementById('height').value=0;document.getElementById('heightVal').textContent='0.00';updateSkeleton();ground(true);
+ if(activeFig){activeFig.tilt={x:0,z:0};syncTiltUI(activeFig);applyFigOrientation(activeFig);ground(false)}
+ loadJointUI()
 }
 function pose(key,x,y,z){if(boneMap[key])applyXYZ(boneMap[key],x,y,z)}
 function bend(key,a){poseA(key,a,0,0)}
-function root(x=0,y=0,z=0){rootRotation.set(THREE.MathUtils.degToRad(x),THREE.MathUtils.degToRad(y),THREE.MathUtils.degToRad(z));model.rotation.copy(rootRotation)}
+function root(x=0,y=0,z=0){rootRotation.set(THREE.MathUtils.degToRad(x),THREE.MathUtils.degToRad(y),THREE.MathUtils.degToRad(z));model.rotation.copy(rootRotation);applyFigOrientation(activeFig)}
 function applyPose(p){
  if(!model)return;
  resetPose();
@@ -954,6 +985,10 @@ function ground(recenter){
  if(!candidates.length)candidates=['lowerleg_l','lowerleg_r','pelvis'].map(k=>boneMap[k]).filter(Boolean);
  if(!candidates.length)candidates=Object.keys(bones);
  let low=Infinity,p=new THREE.Vector3();for(const n of candidates){bones[n].getWorldPosition(p);if(p.y<low)low=p.y}
+ /* v2.7: with a user tilt applied, bone positions no longer mark the mesh's lowest point (a tilted rigged
+    figure's head/tail/limb mesh can dip below its feet) — ground from the mesh bounding box instead. */
+ const tilted=!!(activeFig&&activeFig.tilt&&((+activeFig.tilt.x||0)!==0||(+activeFig.tilt.z||0)!==0));
+ if(tilted){model.updateMatrixWorld(true);const tb=new THREE.Box3().setFromObject(model);if(!tb.isEmpty())low=tb.min.y}
  if(!isFinite(low)){const b=new THREE.Box3().setFromObject(model);if(!b.isEmpty())low=b.min.y}
  if(isFinite(low))model.position.y+=.04+floating-low;
  model.updateMatrixWorld(true)
