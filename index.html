@@ -60,7 +60,7 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
 <div id="ui">
   <h1>3D Anatomy Studio</h1>
-  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.3 multi-figure</div>
+  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.6 multi-figure</div>
 
   <div class="tabs">
     <button class="tab active" onclick="tab(this,'model')">Model</button>
@@ -75,7 +75,9 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
       <select id="subjectCat" onchange="setCategory(this.value)">
         <option value="human">Human</option>
         <option value="animals">Animals</option>
-        <option value="skulls">Skulls</option>
+        <option value="skulls">Heads &amp; Skulls</option>
+        <option value="statues">Statues</option>
+        <option value="eastern">Eastern</option>
         <option value="objects">Objects</option>
       </select>
     </div>
@@ -236,12 +238,12 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
   <div id="data" class="panel">
     <div class="section">Automatic Model Package</div>
-    <div class="small">The app loads models_glb.zip (human figures), models_animals.zip (animals + skulls) and models_objects.zip (objects) from the same GitHub Pages folder as index.html. Each package works on its own — upload only the ones you have.</div>
+    <div class="small">The app loads its model packages (humans, animals, heads &amp; skulls, statues, eastern, objects) from the same GitHub Pages folder as index.html. Each package works on its own — upload only the ones you have.</div>
     <div class="section">Local Upload</div>
     <input id="file" type="file" accept=".zip,.glb,.gltf" multiple onchange="uploadFiles(event)">
     <div id="fileInfo" class="small">No local file selected.</div>
     <div class="section">Model Credits</div>
-    <div class="small">Human figures: made by the artist with MakeHuman. Animals, skulls and objects: freely licensed models (CC0 / CC-BY) from the Smithsonian Open Access collection, Quaternius, Poly Pizza, the Khronos glTF sample models and Poly by Google. Full source and licence list: CREDITS.txt inside models_glb.zip.</div>
+    <div class="small">Human figures: made by the artist with MakeHuman. All other models: freely licensed (CC0 / CC-BY) museum and community scans — Smithsonian, Minneapolis Institute of Art, Cleveland Museum of Art, SMK Denmark, Musée Saint-Raymond and others. Full source and licence list: the CREDITS.txt inside each package.</div>
   </div>
 </div>
 
@@ -343,13 +345,13 @@ async function tryPackage(name){
 }
 function updatePackageStatus(loaded,failed){
  const el=document.getElementById('fileInfo');if(!el)return;
- el.innerHTML='Packages: '+['models_glb.zip','models_animals.zip','models_objects.zip','models_objects2.zip'].map(n=>(loaded.includes(n)?'✓ ':'✗ ')+n).join(' · ')
+ el.innerHTML='Packages: '+['models_glb.zip','models_animals.zip','models_animals2.zip','models_heads2.zip','models_heads3.zip','models_statues.zip','models_statues2.zip','models_eastern1.zip','models_eastern2.zip','models_eastern3.zip','models_eastern4.zip','models_eastern5.zip','models_eastern6.zip','models_objects.zip','models_objects2.zip','models_objects3.zip','models_objects4.zip'].map(n=>(loaded.includes(n)?'✓ ':'✗ ')+n).join(' · ')
   +'<br>'+modelFiles().length+' model files available.'
   +(failed.length?'<br><span class="bad">Some packages failed to load — check the connection and reload the page.</span>':'');
 }
 async function autoLoad(){
  const loaded=[],failed=[];
- for(const name of ['models_glb.zip','models_animals.zip','models_objects.zip','models_objects2.zip']){
+ for(const name of ['models_glb.zip','models_animals.zip','models_animals2.zip','models_heads2.zip','models_heads3.zip','models_statues.zip','models_statues2.zip','models_eastern1.zip','models_eastern2.zip','models_eastern3.zip','models_eastern4.zip','models_eastern5.zip','models_eastern6.zip','models_objects.zip','models_objects2.zip','models_objects3.zip','models_objects4.zip']){
   if(await tryPackage(name))loaded.push(name);else failed.push(name);
  }
  for(let i=failed.length-1;i>=0;i--){
@@ -376,6 +378,8 @@ function categoryOf(path){
  const p=String(path||'').toLowerCase();
  if(/(^|\/)animals\//.test(p))return'animals';
  if(/(^|\/)skulls\//.test(p))return'skulls';
+ if(/(^|\/)statues\//.test(p))return'statues';
+ if(/(^|\/)eastern\//.test(p))return'eastern';
  if(/(^|\/)objects\//.test(p))return'objects';
  return'human';
 }
@@ -544,6 +548,11 @@ function loadModel(root,name,anims){
   baseScale:1,shading:document.getElementById('shading').value,mixer:null,clips:anims,action:null,playing:false,
   facing:new THREE.Vector3(0,0,1)};
  root.position.set(0,0,0);root.rotation.set(0,0,0);root.scale.setScalar(1);
+ /* v2.4: per-model orientation fixes (quaternions x,y,z,w) for source scans stored off-axis — gibbon skull was upside down; funerary bust slab was rolled ~45 degrees and facing backward */
+ const ORIENT_FIX={'gibbon_skull.glb':[0,0,1,0],'funerary_bust.glb':[0.88555,0.42691,0.05599,0.17441],
+  'arhat_with_bowl.glb':[-0.70711,0,0,0.70711],'buddha_walking_sukhothai.glb':[0,1,0,0],'naga_kanya.glb':[0,1,0,0],
+  'glass_bottle_scan.glb':[0,0,0.70711,0.70711]};
+ const ofx=ORIENT_FIX[String(name||'').toLowerCase()];if(ofx)root.quaternion.set(ofx[0],ofx[1],ofx[2],ofx[3]);
  fig.group.add(root);scene.add(fig.group);
  if(replace){
   const i=figures.indexOf(replace);scene.remove(replace.group);figures[i]=fig;
