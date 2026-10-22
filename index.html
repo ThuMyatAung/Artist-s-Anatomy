@@ -60,7 +60,7 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
 <div id="ui">
   <h1>3D Anatomy Studio</h1>
-  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.1 multi-figure</div>
+  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.2 multi-figure</div>
 
   <div class="tabs">
     <button class="tab active" onclick="tab(this,'model')">Model</button>
@@ -334,25 +334,38 @@ async function addZipPackage(blob){
  const z=await JSZip.loadAsync(blob);
  Object.keys(z.files).forEach(p=>{const f=z.files[p];zip.files[p]={dir:!!f.dir,async:t=>f.async(t)}});
 }
+async function tryPackage(name){
+ try{
+  const r=await fetch(name,{cache:'no-store'});if(!r.ok)return false;
+  const b=await r.blob();if(b.size<100)return false;
+  await addZipPackage(b);return true;
+ }catch(e){console.warn(name,e);return false}
+}
+function updatePackageStatus(loaded,failed){
+ const el=document.getElementById('fileInfo');if(!el)return;
+ el.innerHTML='Packages: '+['models_glb.zip','models_animals.zip','models_objects.zip'].map(n=>(loaded.includes(n)?'✓ ':'✗ ')+n).join(' · ')
+  +'<br>'+modelFiles().length+' model files available.'
+  +(failed.length?'<br><span class="bad">Some packages failed to load — check the connection and reload the page.</span>':'');
+}
 async function autoLoad(){
- const loaded=[];
+ const loaded=[],failed=[];
  for(const name of ['models_glb.zip','models_animals.zip','models_objects.zip']){
-  try{
-   const r=await fetch(name,{cache:'no-store'});if(!r.ok)continue;
-   const b=await r.blob();if(b.size<100)continue;
-   await addZipPackage(b);loaded.push(name);
-  }catch(e){console.warn(name,e)}
+  if(await tryPackage(name))loaded.push(name);else failed.push(name);
+ }
+ for(let i=failed.length-1;i>=0;i--){
+  await new Promise(r=>setTimeout(r,1200));
+  if(await tryPackage(failed[i])){loaded.push(failed[i]);failed.splice(i,1)}
  }
  if(!loaded.length){
   for(const name of ['models.zip','model_glb.zip','model.zip']){
-   try{
-    const r=await fetch(name,{cache:'no-store'});if(!r.ok)continue;
-    const b=await r.blob();if(b.size<100)continue;
-    await addZipPackage(b);loaded.push(name);break;
-   }catch(e){console.warn(name,e)}
+   if(await tryPackage(name)){loaded.push(name);break}
   }
  }
- if(loaded.length){fillModelList();toast('Model packages loaded: '+loaded.join(', '));await modelConfigChanged();return}
+ if(loaded.length){
+  fillModelList();updatePackageStatus(loaded,failed);
+  toast(failed.length?('Packages loaded: '+loaded.join(', ')+' — MISSING: '+failed.join(', ')+' (reload to retry)'):('Model packages loaded: '+loaded.join(', ')));
+  await modelConfigChanged();return;
+ }
  toast('Upload a model ZIP / GLB from Data')
 }
 function modelFiles(){
