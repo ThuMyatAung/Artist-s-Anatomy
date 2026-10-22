@@ -60,7 +60,7 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
 <div id="ui">
   <h1>3D Anatomy Studio</h1>
-  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.2 multi-figure</div>
+  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.3 multi-figure</div>
 
   <div class="tabs">
     <button class="tab active" onclick="tab(this,'model')">Model</button>
@@ -343,13 +343,13 @@ async function tryPackage(name){
 }
 function updatePackageStatus(loaded,failed){
  const el=document.getElementById('fileInfo');if(!el)return;
- el.innerHTML='Packages: '+['models_glb.zip','models_animals.zip','models_objects.zip'].map(n=>(loaded.includes(n)?'✓ ':'✗ ')+n).join(' · ')
+ el.innerHTML='Packages: '+['models_glb.zip','models_animals.zip','models_objects.zip','models_objects2.zip'].map(n=>(loaded.includes(n)?'✓ ':'✗ ')+n).join(' · ')
   +'<br>'+modelFiles().length+' model files available.'
   +(failed.length?'<br><span class="bad">Some packages failed to load — check the connection and reload the page.</span>':'');
 }
 async function autoLoad(){
  const loaded=[],failed=[];
- for(const name of ['models_glb.zip','models_animals.zip','models_objects.zip']){
+ for(const name of ['models_glb.zip','models_animals.zip','models_objects.zip','models_objects2.zip']){
   if(await tryPackage(name))loaded.push(name);else failed.push(name);
  }
  for(let i=failed.length-1;i>=0;i--){
