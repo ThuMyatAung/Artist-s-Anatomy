@@ -60,7 +60,7 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
 
 <div id="ui">
   <h1>3D Anatomy Studio</h1>
-  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.8 multi-figure</div>
+  <div class="sub">Artist's Anatomy — pose, light, study & capture · v2.10 multi-figure</div>
 
   <div class="tabs">
     <button class="tab active" onclick="tab(this,'model')">Model</button>
@@ -190,6 +190,11 @@ input[type=color]{height:30px;padding:2px;background:#1a1c25;border:1px solid #3
       <option value="david">David (Michelangelo)</option>
       <option value="pieta">Pietà (Cradling)</option>
       <option value="adam">Adam (Creation of Adam)</option>
+      <option value="venus">Birth of Venus</option>
+      <option value="poseidon">Poseidon Rising</option>
+      <option value="eros">Eros (Archer)</option>
+      <option value="artemis">Artemis (Archer)</option>
+      <option value="athena">Athena with Spear</option>
     </select></div>
 
     <div class="section">Fine Tune Joint</div>
@@ -925,12 +930,12 @@ function applyPose(p){
   case'thinker':
    poseA('pelvis',6,0,0);poseA('waist',16,0,0);poseA('chest',12,0,0);poseA('neck',10,0,-3);poseA('head',14,0,-6);
    poseA('upperleg_l',82,6,0);poseA('upperleg_r',82,6,0);bend('lowerleg_l',84);bend('lowerleg_r',84);
-   poseA('upperarm_l',26,12,0);bend('lowerarm_l',32);
-   poseA('upperarm_r',40,-10,0);bend('lowerarm_r',64);break;
+   poseA('upperarm_l',34,10,0);bend('lowerarm_l',18);
+   poseA('upperarm_r',55,-14,0);bend('lowerarm_r',118);break;
   case'ascending':
    poseA('chest',-6,0,0);poseA('waist',-4,0,0);poseA('head',-8,0,0);poseA('neck',-5,0,0);
    poseA('upperleg_l',38,4,0);bend('lowerleg_l',30);poseA('upperleg_r',-18,4,0);bend('lowerleg_r',10);
-   poseA('upperarm_l',128,12,0);poseA('upperarm_r',128,12,0);bend('lowerarm_l',18);bend('lowerarm_r',18);
+   poseA('upperarm_l',128,20,0);poseA('upperarm_r',128,20,0);bend('lowerarm_l',18);bend('lowerarm_r',18);
    updateSkeleton();setModelHeight(.65);return;
   case'reading':
    poseA('pelvis',4,0,0);poseA('waist',12,0,0);poseA('chest',8,0,0);poseA('neck',8,0,0);poseA('head',16,0,0);
@@ -969,23 +974,43 @@ function applyPose(p){
    poseA('upperleg_r',12,2,0);bend('lowerleg_r',10);poseA('upperleg_l',-32,4,0);bend('lowerleg_l',6);
    poseA('upperarm_r',-30,12,0);bend('lowerarm_r',14);poseA('upperarm_l',34,8,0);bend('lowerarm_l',22);break;
   case'dyinggaul':
-   root(0,0,-62);
+   root(0,0,-90);
    poseA('waist',6,0,0);poseA('chest',8,0,0);poseA('head',16,0,0);
    poseA('upperleg_l',10,4,0);bend('lowerleg_l',8);poseA('upperleg_r',48,4,0);bend('lowerleg_r',62);
    poseA('upperarm_r',30,8,0);bend('lowerarm_r',24);poseA('upperarm_l',40,-10,0);bend('lowerarm_l',88);break;
   case'david':
-   poseA('pelvis',0,3,0);poseA('waist',2,-2,2);poseA('chest',0,2,-3);poseA('head',2,0,12);
+   poseA('pelvis',0,3,0);poseA('waist',2,-2,2);poseA('chest',0,2,-3);poseA('head',2,0,25);
    poseA('upperleg_r',4,-2,0);bend('lowerleg_r',4);poseA('upperleg_l',-6,2,0);bend('lowerleg_l',12);
-   poseA('upperarm_r',6,4,0);bend('lowerarm_r',8);poseA('upperarm_l',18,12,0);bend('lowerarm_l',112);break;
+   poseA('upperarm_r',18,12,0);bend('lowerarm_r',112);poseA('upperarm_l',6,4,0);bend('lowerarm_l',8);break;
   case'pieta':
-   poseA('pelvis',6,0,0);poseA('waist',10,0,0);poseA('chest',8,0,0);poseA('neck',6,0,0);poseA('head',16,0,0);
+   poseA('pelvis',6,0,0);poseA('waist',6,0,0);poseA('chest',4,0,0);poseA('neck',6,0,0);poseA('head',12,0,0);
    poseA('upperleg_l',84,4,0);bend('lowerleg_l',88);poseA('upperleg_r',84,4,0);bend('lowerleg_r',88);
-   poseA('upperarm_l',38,10,0);bend('lowerarm_l',28);poseA('upperarm_r',38,-10,0);bend('lowerarm_r',28);break;
+   poseA('upperarm_l',30,10,0);bend('lowerarm_l',20);poseA('upperarm_r',45,-14,0);bend('lowerarm_r',55);break;
   case'adam':
-   root(0,0,-55);
+   root(0,0,-90);
    poseA('waist',4,0,0);poseA('chest',6,0,0);poseA('head',4,0,-8);
    poseA('upperleg_l',6,4,0);bend('lowerleg_l',10);poseA('upperleg_r',44,4,0);bend('lowerleg_r',68);
    poseA('upperarm_r',66,8,0);bend('lowerarm_r',8);poseA('upperarm_l',-24,8,0);bend('lowerarm_l',30);break;
+  case'venus':
+   poseA('pelvis',0,2,0);poseA('waist',2,-2,3);poseA('chest',0,2,-3);poseA('neck',2,0,4);poseA('head',4,0,8);
+   poseA('upperleg_r',2,-2,0);bend('lowerleg_r',2);poseA('upperleg_l',-8,3,0);bend('lowerleg_l',10);
+   poseA('upperarm_l',30,10,0);bend('lowerarm_l',95);poseA('upperarm_r',22,-8,0);bend('lowerarm_r',40);break;
+  case'poseidon':
+   poseA('pelvis',4,0,0);poseA('waist',8,0,4);poseA('chest',10,0,6);poseA('head',-8,0,6);
+   poseA('upperleg_l',55,4,0);bend('lowerleg_l',70);poseA('upperleg_r',-25,4,0);bend('lowerleg_r',15);
+   poseA('upperarm_r',75,10,0);bend('lowerarm_r',12);poseA('upperarm_l',-30,8,0);bend('lowerarm_l',25);break;
+  case'eros':
+   poseA('pelvis',3,0,0);poseA('waist',4,0,0);poseA('chest',2,0,0);poseA('head',2,0,15);
+   poseA('upperleg_l',18,3,0);bend('lowerleg_l',20);poseA('upperleg_r',-12,3,0);bend('lowerleg_r',12);
+   poseA('upperarm_l',80,8,0);bend('lowerarm_l',6);poseA('upperarm_r',35,-10,0);bend('lowerarm_r',115);break;
+  case'artemis':
+   poseA('pelvis',2,0,0);poseA('waist',6,0,-6);poseA('chest',4,0,-8);poseA('head',2,0,10);
+   poseA('upperleg_l',30,4,0);bend('lowerleg_l',25);poseA('upperleg_r',-28,4,0);bend('lowerleg_r',20);
+   poseA('upperarm_l',85,10,0);bend('lowerarm_l',8);poseA('upperarm_r',-55,-12,0);bend('lowerarm_r',40);break;
+  case'athena':
+   poseA('pelvis',0,3,0);poseA('waist',2,-2,2);poseA('chest',0,2,-3);poseA('head',0,0,0);
+   poseA('upperleg_r',2,-2,0);bend('lowerleg_r',2);poseA('upperleg_l',-6,2,0);bend('lowerleg_l',10);
+   poseA('upperarm_r',145,14,0);bend('lowerarm_r',8);poseA('upperarm_l',20,10,0);bend('lowerarm_l',70);break;
  }
  updateSkeleton();ground(false);
  if(p==='sleeping')focusModel();
